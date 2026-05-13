@@ -26,12 +26,16 @@ jobs:
         with:
           gradle-version: "8.7"
 
-      - name: Install Android SDK platform 34
+      - name: Accept Android SDK licenses and install platform 34
         run: |
+          yes | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
           ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager \
             "platforms;android-34" \
             "build-tools;34.0.0" \
             "platform-tools"
+
+      - name: Write local.properties
+        run: echo "sdk.dir=${ANDROID_SDK_ROOT}" > local.properties
 
       - name: Build Debug APK
         run: gradle :app:assembleDebug
@@ -43,7 +47,7 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 90
 
-      # Bei einem Tag (z.B. v1.0) → GitHub Release mit APK erstellen
+      # Bei einem Tag (v*) → öffentliches GitHub Release mit APK als direktem Download
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
