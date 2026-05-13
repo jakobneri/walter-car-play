@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Walter CarPlay</string>
+    <string name="notification_title">Walter CarPlay aktiv</string>
+    <string name="notification_text">Warte auf USB-Audio-Verbindung…</string>
+    <string name="notification_channel_name">CarPlay Überwachung</string>
+    <string name="notification_alert_channel_name">CarPlay Start</string>
+</resources>
