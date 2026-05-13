@@ -21,33 +21,32 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # Installiert Android SDK inkl. Lizenzen automatisch
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK platform 34
+        run: |
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
       - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: "8.7"
 
-      - name: Accept Android SDK licenses and install platform 34
-        run: |
-          yes | ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null 2>&1 || true
-          ${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager \
-            "platforms;android-34" \
-            "build-tools;34.0.0" \
-            "platform-tools"
-
       - name: Write local.properties
-        run: echo "sdk.dir=${ANDROID_SDK_ROOT}" > local.properties
+        run: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
       - name: Build Debug APK
         run: gradle :app:assembleDebug
 
-      - name: Upload APK as artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: walter-car-play-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 90
 
-      # Bei einem Tag (v*) → öffentliches GitHub Release mit APK als direktem Download
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
