@@ -13,9 +13,8 @@
 
     <queries>
         <package android:name="com.google.android.apps.youtube.music" />
+        <package android:name="de.blitzer.plus" />
         <package android:name="com.sygic.aura" />
-        <package android:name="de.blitzerpro" />
-        <package android:name="com.blitzer.blitzerpro" />
     </queries>
 
     <application
