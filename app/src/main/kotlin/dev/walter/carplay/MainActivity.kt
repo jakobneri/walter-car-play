@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestNotificationPermissionIfNeeded()
-        CarModeService.start(this)
+        try { CarModeService.start(this) } catch (_: Exception) {}
 
         setContent {
             WalterCarPlayTheme {
