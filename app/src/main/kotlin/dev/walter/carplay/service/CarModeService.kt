@@ -85,14 +85,19 @@ class CarModeService : Service() {
                 this@CarModeService, 0, launchIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            val canFullScreen = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
+                    nm.canUseFullScreenIntent()
             val alert = NotificationCompat.Builder(this@CarModeService, ALERT_CHANNEL_ID)
-                .setContentTitle("Kabel erkannt – starte Apps…")
+                .setContentTitle("Kabel erkannt – Apps starten")
+                .setContentText(if (canFullScreen) "Wird geöffnet…" else "Tippen zum Öffnen")
                 .setSmallIcon(R.drawable.ic_car)
-                .setFullScreenIntent(pi, true)
+                .setContentIntent(pi)
+                .apply { if (canFullScreen) setFullScreenIntent(pi, true) }
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setAutoCancel(true)
                 .build()
-            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(ALERT_NOTIF_ID, alert)
+            nm.notify(ALERT_NOTIF_ID, alert)
         }
     }
 

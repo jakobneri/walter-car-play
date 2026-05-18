@@ -1,6 +1,7 @@
 package dev.walter.carplay.ui
 
 import android.content.Intent
+import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -205,6 +206,39 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
         }
 
         SectionLabel("SYSTEM")
+
+        // Android 14+: fullScreenIntent needs explicit permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val nm = remember { ctx.getSystemService(android.app.NotificationManager::class.java) }
+            val canFullScreen by produceState(nm.canUseFullScreenIntent()) {
+                // recheck whenever screen is resumed
+                value = nm.canUseFullScreenIntent()
+            }
+            if (!canFullScreen) {
+                OutlinedButton(
+                    onClick = {
+                        ctx.startActivity(
+                            android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                                data = android.net.Uri.parse("package:${ctx.packageName}")
+                            }
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Orange),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Vollbild-Berechtigung erteilen", fontSize = 14.sp)
+                }
+                Text(
+                    "Damit sich die Apps automatisch öffnen (ohne Tippen), muss die Vollbild-Benachrichtigung erlaubt sein.",
+                    color = TextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+        }
+
         OutlinedButton(
             onClick = onRequestBatteryOptimization,
             modifier = Modifier
