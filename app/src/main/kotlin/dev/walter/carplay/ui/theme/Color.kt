@@ -2,8 +2,8 @@ package dev.walter.carplay.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Orange = Color(0xFFFF6B00)
-val OrangeDim = Color(0xFFBF5000)
+val Orange = Color(0xFF1565C0)
+val OrangeDim = Color(0xFF0D47A1)
 val Surface = Color(0xFF1C1C1E)
 val Card = Color(0xFF2C2C2E)
 val CardHighlight = Color(0xFF3A3A3C)

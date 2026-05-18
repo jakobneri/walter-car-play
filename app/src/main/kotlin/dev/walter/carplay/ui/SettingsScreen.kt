@@ -1,8 +1,13 @@
 package dev.walter.carplay.ui
 
+import android.content.Intent
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -15,15 +20,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.drawable.toBitmap
 import dev.walter.carplay.data.AppPreferences
 import dev.walter.carplay.service.CarModeService
 import dev.walter.carplay.ui.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 @Composable
@@ -39,7 +48,7 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
     val setVol by prefs.setVolume.collectAsState(false)
     val volLevel by prefs.volumeLevel.collectAsState(80)
 
-    var showAddDialog by remember { mutableStateOf(false) }
+    var showAppPicker by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -49,7 +58,6 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Header
         Text(
             "WALTER CAR PLAY",
             color = TextPrimary,
@@ -59,7 +67,6 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
         )
 
-        // Service toggle card
         Card(
             colors = CardDefaults.cardColors(containerColor = Card),
             shape = RoundedCornerShape(14.dp),
@@ -91,7 +98,6 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
             }
         }
 
-        // Apps section
         SectionLabel("APPS BEIM VERBINDEN")
         Card(
             colors = CardDefaults.cardColors(containerColor = Card),
@@ -108,18 +114,17 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
                 }
                 if (apps.size < 5) {
                     TextButton(
-                        onClick = { showAddDialog = true },
+                        onClick = { showAppPicker = true },
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null, tint = Orange)
                         Spacer(Modifier.width(8.dp))
-                        Text("App hinzufügen", color = Orange)
+                        Text("App auswählen", color = Orange)
                     }
                 }
             }
         }
 
-        // Delay
         SectionLabel("VERZÖGERUNG NACH KABELANSCHLUSS")
         Card(
             colors = CardDefaults.cardColors(containerColor = Card),
@@ -144,7 +149,6 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
             }
         }
 
-        // Optionen
         SectionLabel("OPTIONEN")
         Card(
             colors = CardDefaults.cardColors(containerColor = Card),
@@ -185,7 +189,6 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
             }
         }
 
-        // Test button
         Button(
             onClick = { CarModeService.testLaunch(ctx) },
             modifier = Modifier
@@ -199,7 +202,6 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
             Text("JETZT TESTEN", fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 1.sp)
         }
 
-        // System
         SectionLabel("SYSTEM")
         OutlinedButton(
             onClick = onRequestBatteryOptimization,
@@ -221,19 +223,29 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
         Spacer(Modifier.height(24.dp))
     }
 
-    if (showAddDialog) {
-        AddAppDialog(
+    if (showAppPicker) {
+        InstalledAppsDialog(
+            currentApps = apps,
             onConfirm = { pkg ->
-                if (pkg.isNotBlank()) scope.launch { prefs.setAppList(apps + pkg.trim()) }
-                showAddDialog = false
+                scope.launch { prefs.setAppList(apps + pkg) }
+                showAppPicker = false
             },
-            onDismiss = { showAddDialog = false }
+            onDismiss = { showAppPicker = false }
         )
     }
 }
 
 @Composable
 private fun AppRow(pkg: String, onRemove: () -> Unit) {
+    val ctx = LocalContext.current
+    val name = remember(pkg) {
+        try {
+            val ai = ctx.packageManager.getApplicationInfo(pkg, 0)
+            ctx.packageManager.getApplicationLabel(ai).toString()
+        } catch (_: Exception) {
+            pkg.substringAfterLast(".").replaceFirstChar { it.uppercase() }
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -243,7 +255,7 @@ private fun AppRow(pkg: String, onRemove: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(appName(pkg), color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+            Text(name, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 15.sp)
             Text(pkg, color = TextSecondary, fontSize = 11.sp)
         }
         IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
@@ -286,23 +298,49 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun AddAppDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
-    var input by remember { mutableStateOf("") }
+private fun InstalledAppsDialog(
+    currentApps: List<String>,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val ctx = LocalContext.current
+    var search by remember { mutableStateOf("") }
+
+    val installedApps by produceState<List<Pair<String, String>>>(initialValue = emptyList()) {
+        value = withContext(Dispatchers.IO) {
+            val pm = ctx.packageManager
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(intent, 0)
+                .map { ri ->
+                    val pkg = ri.activityInfo.packageName
+                    val label = try {
+                        pm.getApplicationLabel(ri.activityInfo.applicationInfo).toString()
+                    } catch (_: Exception) { pkg }
+                    pkg to label
+                }
+                .distinctBy { it.first }
+                .filter { it.first !in currentApps }
+                .sortedBy { it.second.lowercase() }
+        }
+    }
+
+    val filtered = if (search.isBlank()) installedApps
+    else installedApps.filter {
+        it.second.contains(search, ignoreCase = true) ||
+                it.first.contains(search, ignoreCase = true)
+    }
+
     AlertDialog(
         containerColor = Card,
         onDismissRequest = onDismiss,
-        title = { Text("App hinzufügen", color = TextPrimary) },
+        title = { Text("App auswählen", color = TextPrimary) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    "Package-Name eingeben, z.B.:\ncom.spotify.music\nde.blitzerpro",
-                    color = TextSecondary,
-                    fontSize = 13.sp
-                )
+            Column {
                 OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    placeholder = { Text("com.example.app", color = TextSecondary) },
+                    value = search,
+                    onValueChange = { search = it },
+                    placeholder = { Text("Suchen…", color = TextSecondary) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -312,24 +350,61 @@ private fun AddAppDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
                         unfocusedTextColor = TextPrimary,
                     )
                 )
+                Spacer(Modifier.height(8.dp))
+                if (installedApps.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Orange, modifier = Modifier.size(32.dp))
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.height(320.dp)) {
+                        items(filtered, key = { it.first }) { (pkg, name) ->
+                            AppPickerRow(pkg = pkg, name = name, onClick = { onConfirm(pkg) })
+                        }
+                    }
+                }
             }
         },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(input) }) { Text("Hinzufügen", color = Orange) }
-        },
+        confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Abbrechen", color = TextSecondary) }
         }
     )
 }
 
-private fun appName(pkg: String) = when (pkg) {
-    "com.google.android.apps.youtube.music" -> "YouTube Music"
-    "com.sygic.aura" -> "Sygic / BlitzerPro"
-    "de.blitzerpro" -> "BlitzerPro"
-    "com.spotify.music" -> "Spotify"
-    "com.waze" -> "Waze"
-    "com.google.android.apps.maps" -> "Google Maps"
-    else -> pkg.substringAfterLast(".")
-        .replaceFirstChar { it.uppercase() }
+@Composable
+private fun AppPickerRow(pkg: String, name: String, onClick: () -> Unit) {
+    val ctx = LocalContext.current
+    var icon by remember(pkg) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(pkg) {
+        icon = withContext(Dispatchers.IO) {
+            try {
+                ctx.packageManager.getApplicationIcon(pkg).toBitmap().asImageBitmap()
+            } catch (_: Exception) { null }
+        }
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (icon != null) {
+            Image(
+                bitmap = icon!!,
+                contentDescription = null,
+                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(8.dp))
+            )
+        } else {
+            Spacer(Modifier.size(36.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(name, color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(pkg, color = TextSecondary, fontSize = 11.sp, maxLines = 1)
+        }
+    }
 }

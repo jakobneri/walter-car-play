@@ -96,6 +96,7 @@ class CarModeService : Service() {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun acquireWakeLock() {
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(
