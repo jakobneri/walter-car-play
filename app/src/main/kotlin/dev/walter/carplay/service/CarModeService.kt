@@ -111,36 +111,28 @@ class CarModeService : Service() {
                 return@launch
             }
 
+            val launchIntent = Intent(this@CarModeService, LauncherActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putStringArrayListExtra(LauncherActivity.EXTRA_PACKAGES, ArrayList(packages))
+            }
+            val pi = PendingIntent.getActivity(
+                this@CarModeService, REQUEST_CODE_BASE, launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             val canFullScreen = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
                     nm.canUseFullScreenIntent()
-            Log.d(TAG, "canUseFullScreenIntent=$canFullScreen – firing ${packages.size} notification(s)")
-
-            // Fire one notification per app with a 2s gap so each app gets foreground
-            // time to initialise (GPS, services, etc.) before the next one takes over.
-            packages.forEachIndexed { index, pkg ->
-                if (index > 0) delay(2000L)
-
-                val launchIntent = Intent(this@CarModeService, LauncherActivity::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    putStringArrayListExtra(LauncherActivity.EXTRA_PACKAGES, arrayListOf(pkg))
-                }
-                val pi = PendingIntent.getActivity(
-                    this@CarModeService, REQUEST_CODE_BASE + index, launchIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                )
-                val alert = NotificationCompat.Builder(this@CarModeService, ALERT_CHANNEL_ID)
-                    .setContentTitle("Kabel erkannt – Apps starten")
-                    .setContentText(if (canFullScreen) "Wird geöffnet…" else "Tippen zum Öffnen")
-                    .setSmallIcon(R.drawable.ic_car)
-                    .setContentIntent(pi)
-                    .apply { if (canFullScreen) setFullScreenIntent(pi, true) }
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .setAutoCancel(true)
-                    .build()
-                nm.notify(ALERT_NOTIF_ID + index, alert)
-                Log.d(TAG, "Notification fired for $pkg (index=$index)")
-            }
+            Log.d(TAG, "canUseFullScreenIntent=$canFullScreen – firing notification")
+            val alert = NotificationCompat.Builder(this@CarModeService, ALERT_CHANNEL_ID)
+                .setContentTitle("Kabel erkannt – Apps starten")
+                .setContentText(if (canFullScreen) "Wird geöffnet…" else "Tippen zum Öffnen")
+                .setSmallIcon(R.drawable.ic_car)
+                .setContentIntent(pi)
+                .apply { if (canFullScreen) setFullScreenIntent(pi, true) }
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .build()
+            nm.notify(ALERT_NOTIF_ID, alert)
         }
     }
 
