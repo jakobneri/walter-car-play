@@ -31,7 +31,7 @@ class CarModeService : Service() {
             val match = added.firstOrNull { it.isSink && it.type in AUDIO_OUTPUT_TYPES }
             if (match != null) {
                 Log.d(TAG, "Cable connected – matched device type ${match.type}")
-                onCableConnected()
+                onCableConnected(direct = false)
             }
         }
         override fun onAudioDevicesRemoved(removed: Array<AudioDeviceInfo>) {
@@ -54,7 +54,7 @@ class CarModeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_TEST) onCableConnected()
+        if (intent?.action == ACTION_TEST) onCableConnected(direct = true)
         return START_STICKY
     }
 
@@ -67,8 +67,8 @@ class CarModeService : Service() {
         super.onDestroy()
     }
 
-    private fun onCableConnected() {
-        Log.d(TAG, "onCableConnected called")
+    private fun onCableConnected(direct: Boolean) {
+        Log.d(TAG, "onCableConnected called (direct=$direct)")
         launchJob?.cancel()
         launchJob = scope.launch {
             val enabled = prefs.serviceEnabled.first()
@@ -100,6 +100,14 @@ class CarModeService : Service() {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                 putStringArrayListExtra(LauncherActivity.EXTRA_PACKAGES, ArrayList(packages))
             }
+
+            if (direct) {
+                // Test button: app is in foreground, start directly without notification overhead
+                Log.d(TAG, "Direct launch (test mode)")
+                startActivity(launchIntent)
+                return@launch
+            }
+
             val pi = PendingIntent.getActivity(
                 this@CarModeService, 0, launchIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
