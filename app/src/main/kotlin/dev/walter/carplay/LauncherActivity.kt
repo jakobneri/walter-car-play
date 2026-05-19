@@ -3,29 +3,26 @@ package dev.walter.carplay
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
-/**
- * Transparente Trampolin-Activity: öffnet Ziel-Apps und schließt sich sofort wieder.
- * Wird über einen fullScreenIntent aus CarModeService gestartet, was auch auf
- * gesperrten Bildschirmen und Android 10+ funktioniert.
- */
 class LauncherActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val packages = intent.getStringArrayListExtra(EXTRA_PACKAGES) ?: return finish()
+        val packages = intent.getStringArrayListExtra(EXTRA_PACKAGES) ?: run { finish(); return }
 
-        for (pkg in packages) {
-            packageManager.getLaunchIntentForPackage(pkg)
-                ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                ?.let {
-                    startActivity(it)
-                    Thread.sleep(400) // kurze Pause damit erste App in den Vordergrund kommt
-                }
+        lifecycleScope.launch {
+            packages.forEach { pkg ->
+                packageManager.getLaunchIntentForPackage(pkg)
+                    ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    ?.let { startActivity(it) }
+                delay(600)
+            }
+            finish()
         }
-
-        finish()
     }
 
     companion object {
