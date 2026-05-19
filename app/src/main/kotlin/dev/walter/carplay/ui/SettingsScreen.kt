@@ -15,6 +15,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -110,6 +112,18 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
                 apps.forEachIndexed { index, pkg ->
                     AppRow(
                         pkg = pkg,
+                        canMoveUp = index > 0,
+                        canMoveDown = index < apps.lastIndex,
+                        onMoveUp = {
+                            val list = apps.toMutableList()
+                            list.add(index - 1, list.removeAt(index))
+                            scope.launch { prefs.setAppList(list) }
+                        },
+                        onMoveDown = {
+                            val list = apps.toMutableList()
+                            list.add(index + 1, list.removeAt(index))
+                            scope.launch { prefs.setAppList(list) }
+                        },
                         onRemove = {
                             scope.launch { prefs.setAppList(apps.toMutableList().also { it.removeAt(index) }) }
                         }
@@ -272,7 +286,14 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
 }
 
 @Composable
-private fun AppRow(pkg: String, onRemove: () -> Unit) {
+private fun AppRow(
+    pkg: String,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    onRemove: () -> Unit,
+) {
     val ctx = LocalContext.current
     val name = remember(pkg) {
         try {
@@ -287,12 +308,20 @@ private fun AppRow(pkg: String, onRemove: () -> Unit) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(CardHighlight)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(name, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 15.sp)
             Text(pkg, color = TextSecondary, fontSize = 11.sp)
+        }
+        Column {
+            IconButton(onClick = onMoveUp, enabled = canMoveUp, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Nach oben", tint = if (canMoveUp) TextSecondary else CardHighlight, modifier = Modifier.size(18.dp))
+            }
+            IconButton(onClick = onMoveDown, enabled = canMoveDown, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Nach unten", tint = if (canMoveDown) TextSecondary else CardHighlight, modifier = Modifier.size(18.dp))
+            }
         }
         IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
             Icon(Icons.Default.Close, contentDescription = "Entfernen", tint = TextSecondary, modifier = Modifier.size(18.dp))
