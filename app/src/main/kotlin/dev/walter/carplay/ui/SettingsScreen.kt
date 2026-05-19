@@ -308,13 +308,9 @@ private fun AppRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(CardHighlight)
-            .padding(start = 16.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            .padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(name, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 15.sp)
-            Text(pkg, color = TextSecondary, fontSize = 11.sp)
-        }
         Column {
             IconButton(onClick = onMoveUp, enabled = canMoveUp, modifier = Modifier.size(28.dp)) {
                 Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Nach oben", tint = if (canMoveUp) TextSecondary else CardHighlight, modifier = Modifier.size(18.dp))
@@ -322,6 +318,10 @@ private fun AppRow(
             IconButton(onClick = onMoveDown, enabled = canMoveDown, modifier = Modifier.size(28.dp)) {
                 Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Nach unten", tint = if (canMoveDown) TextSecondary else CardHighlight, modifier = Modifier.size(18.dp))
             }
+        }
+        Column(modifier = Modifier.weight(1f).padding(start = 8.dp)) {
+            Text(name, color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 15.sp)
+            Text(pkg, color = TextSecondary, fontSize = 11.sp)
         }
         IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
             Icon(Icons.Default.Close, contentDescription = "Entfernen", tint = TextSecondary, modifier = Modifier.size(18.dp))
