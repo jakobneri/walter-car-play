@@ -31,7 +31,7 @@ class CarModeService : Service() {
             val match = added.firstOrNull { it.isSink && it.type in AUDIO_OUTPUT_TYPES }
             if (match != null) {
                 Log.d(TAG, "Cable connected – matched device type ${match.type}")
-                onCableConnected(direct = false)
+                onCableConnected(skipDelay = false)
             }
         }
         override fun onAudioDevicesRemoved(removed: Array<AudioDeviceInfo>) {
@@ -54,7 +54,7 @@ class CarModeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_TEST) onCableConnected(direct = true)
+        if (intent?.action == ACTION_TEST) onCableConnected(skipDelay = true)
         return START_STICKY
     }
 
@@ -67,17 +67,19 @@ class CarModeService : Service() {
         super.onDestroy()
     }
 
-    private fun onCableConnected(direct: Boolean) {
-        Log.d(TAG, "onCableConnected called (direct=$direct)")
+    private fun onCableConnected(skipDelay: Boolean) {
+        Log.d(TAG, "onCableConnected called (skipDelay=$skipDelay)")
         launchJob?.cancel()
         launchJob = scope.launch {
             val enabled = prefs.serviceEnabled.first()
             Log.d(TAG, "serviceEnabled=$enabled")
             if (!enabled) return@launch
 
-            val delaySec = prefs.delaySeconds.first()
-            Log.d(TAG, "Waiting ${delaySec}s before launching apps")
-            delay(delaySec * 1000L)
+            if (!skipDelay) {
+                val delaySec = prefs.delaySeconds.first()
+                Log.d(TAG, "Waiting ${delaySec}s before launching apps")
+                delay(delaySec * 1000L)
+            }
 
             if (prefs.keepScreenOn.first()) acquireWakeLock()
 
@@ -96,36 +98,36 @@ class CarModeService : Service() {
                 return@launch
             }
 
-            val launchIntent = Intent(this@CarModeService, LauncherActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                putStringArrayListExtra(LauncherActivity.EXTRA_PACKAGES, ArrayList(packages))
-            }
-
-            if (direct) {
-                // Test button: app is in foreground, start directly without notification overhead
-                Log.d(TAG, "Direct launch (test mode)")
-                startActivity(launchIntent)
-                return@launch
-            }
-
-            val pi = PendingIntent.getActivity(
-                this@CarModeService, 0, launchIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             val canFullScreen = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
                     nm.canUseFullScreenIntent()
-            Log.d(TAG, "canUseFullScreenIntent=$canFullScreen – firing notification")
-            val alert = NotificationCompat.Builder(this@CarModeService, ALERT_CHANNEL_ID)
-                .setContentTitle("Kabel erkannt – Apps starten")
-                .setContentText(if (canFullScreen) "Wird geöffnet…" else "Tippen zum Öffnen")
-                .setSmallIcon(R.drawable.ic_car)
-                .setContentIntent(pi)
-                .apply { if (canFullScreen) setFullScreenIntent(pi, true) }
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setAutoCancel(true)
-                .build()
-            nm.notify(ALERT_NOTIF_ID, alert)
+            Log.d(TAG, "canUseFullScreenIntent=$canFullScreen – firing ${packages.size} notification(s)")
+
+            // Fire one notification per app with a 2s gap so each app gets foreground
+            // time to initialise (GPS, services, etc.) before the next one takes over.
+            packages.forEachIndexed { index, pkg ->
+                if (index > 0) delay(2000L)
+
+                val launchIntent = Intent(this@CarModeService, LauncherActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putStringArrayListExtra(LauncherActivity.EXTRA_PACKAGES, arrayListOf(pkg))
+                }
+                val pi = PendingIntent.getActivity(
+                    this@CarModeService, REQUEST_CODE_BASE + index, launchIntent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+                val alert = NotificationCompat.Builder(this@CarModeService, ALERT_CHANNEL_ID)
+                    .setContentTitle("Kabel erkannt – Apps starten")
+                    .setContentText(if (canFullScreen) "Wird geöffnet…" else "Tippen zum Öffnen")
+                    .setSmallIcon(R.drawable.ic_car)
+                    .setContentIntent(pi)
+                    .apply { if (canFullScreen) setFullScreenIntent(pi, true) }
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setAutoCancel(true)
+                    .build()
+                nm.notify(ALERT_NOTIF_ID + index, alert)
+                Log.d(TAG, "Notification fired for $pkg (index=$index)")
+            }
         }
     }
 
@@ -177,7 +179,8 @@ class CarModeService : Service() {
         private const val MONITOR_CHANNEL_ID = "car_monitor"
         private const val ALERT_CHANNEL_ID = "car_alert"
         private const val NOTIF_ID = 1
-        private const val ALERT_NOTIF_ID = 2
+        private const val ALERT_NOTIF_ID = 100
+        private const val REQUEST_CODE_BASE = 200
 
         private val AUDIO_OUTPUT_TYPES = setOf(
             AudioDeviceInfo.TYPE_USB_HEADSET,
