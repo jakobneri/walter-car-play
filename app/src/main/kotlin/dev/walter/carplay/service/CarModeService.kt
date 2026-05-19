@@ -7,6 +7,7 @@ import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.*
+import android.util.Log
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import dev.walter.carplay.LauncherActivity
@@ -26,10 +27,17 @@ class CarModeService : Service() {
 
     private val audioCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesAdded(added: Array<AudioDeviceInfo>) {
-            if (added.any { it.isSink && it.type in AUDIO_OUTPUT_TYPES }) onCableConnected()
+            Log.d(TAG, "onAudioDevicesAdded: ${added.map { "${it.type}(${it.productName})" }}")
+            val match = added.firstOrNull { it.isSink && it.type in AUDIO_OUTPUT_TYPES }
+            if (match != null) {
+                Log.d(TAG, "Cable connected – matched device type ${match.type}")
+                onCableConnected()
+            }
         }
         override fun onAudioDevicesRemoved(removed: Array<AudioDeviceInfo>) {
+            Log.d(TAG, "onAudioDevicesRemoved: ${removed.map { "${it.type}(${it.productName})" }}")
             if (removed.any { it.isSink && it.type in AUDIO_OUTPUT_TYPES }) {
+                Log.d(TAG, "Cable removed – cancelling launch job")
                 launchJob?.cancel()
                 releaseWakeLock()
             }
@@ -60,22 +68,33 @@ class CarModeService : Service() {
     }
 
     private fun onCableConnected() {
+        Log.d(TAG, "onCableConnected called")
         launchJob?.cancel()
         launchJob = scope.launch {
-            if (!prefs.serviceEnabled.first()) return@launch
+            val enabled = prefs.serviceEnabled.first()
+            Log.d(TAG, "serviceEnabled=$enabled")
+            if (!enabled) return@launch
 
-            delay(prefs.delaySeconds.first() * 1000L)
+            val delaySec = prefs.delaySeconds.first()
+            Log.d(TAG, "Waiting ${delaySec}s before launching apps")
+            delay(delaySec * 1000L)
 
             if (prefs.keepScreenOn.first()) acquireWakeLock()
 
             if (prefs.setVolume.first()) {
                 val pct = prefs.volumeLevel.first() / 100f
                 val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (max * pct).toInt(), 0)
+                val target = (max * pct).toInt()
+                Log.d(TAG, "Setting volume to $target/$max")
+                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
             }
 
             val packages = prefs.appList.first().filter { it.isNotBlank() }
-            if (packages.isEmpty()) return@launch
+            Log.d(TAG, "App list from prefs: $packages")
+            if (packages.isEmpty()) {
+                Log.w(TAG, "App list is empty – nothing to launch")
+                return@launch
+            }
 
             val launchIntent = Intent(this@CarModeService, LauncherActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -88,6 +107,7 @@ class CarModeService : Service() {
             val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             val canFullScreen = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
                     nm.canUseFullScreenIntent()
+            Log.d(TAG, "canUseFullScreenIntent=$canFullScreen – firing notification")
             val alert = NotificationCompat.Builder(this@CarModeService, ALERT_CHANNEL_ID)
                 .setContentTitle("Kabel erkannt – Apps starten")
                 .setContentText(if (canFullScreen) "Wird geöffnet…" else "Tippen zum Öffnen")
@@ -145,6 +165,7 @@ class CarModeService : Service() {
 
     companion object {
         const val ACTION_TEST = "dev.walter.carplay.TEST"
+        private const val TAG = "WalterService"
         private const val MONITOR_CHANNEL_ID = "car_monitor"
         private const val ALERT_CHANNEL_ID = "car_alert"
         private const val NOTIF_ID = 1
