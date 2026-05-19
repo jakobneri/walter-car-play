@@ -4,9 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class LauncherActivity : ComponentActivity() {
 
@@ -22,27 +19,27 @@ class LauncherActivity : ComponentActivity() {
             return
         }
 
-        lifecycleScope.launch {
-            packages.forEach { pkg ->
-                Log.d(TAG, "Trying to launch: $pkg")
-                val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
-                if (launchIntent == null) {
-                    Log.w(TAG, "getLaunchIntentForPackage returned null for: $pkg (not installed?)")
-                } else {
-                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    Log.d(TAG, "startActivity → $pkg")
-                    try {
-                        startActivity(launchIntent)
-                        Log.d(TAG, "startActivity succeeded for $pkg, waiting 600ms")
-                    } catch (e: Exception) {
-                        Log.e(TAG, "startActivity failed for $pkg: ${e.message}")
-                    }
+        // Launch all apps while still in foreground – Android queues the starts,
+        // last app in list ends up on top. Delaying between launches causes
+        // background-activity-launch blocks on Android 10+.
+        packages.forEach { pkg ->
+            Log.d(TAG, "Trying to launch: $pkg")
+            val launchIntent = packageManager.getLaunchIntentForPackage(pkg)
+            if (launchIntent == null) {
+                Log.w(TAG, "getLaunchIntentForPackage returned null for: $pkg (not installed?)")
+            } else {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try {
+                    startActivity(launchIntent)
+                    Log.d(TAG, "startActivity succeeded for $pkg")
+                } catch (e: Exception) {
+                    Log.e(TAG, "startActivity failed for $pkg: ${e.message}")
                 }
-                delay(600)
             }
-            Log.d(TAG, "All packages processed – finishing")
-            finish()
         }
+
+        Log.d(TAG, "All packages processed – finishing")
+        finish()
     }
 
     companion object {
