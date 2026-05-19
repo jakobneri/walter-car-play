@@ -31,7 +31,7 @@ class CarModeService : Service() {
             val match = added.firstOrNull { it.isSink && it.type in AUDIO_OUTPUT_TYPES }
             if (match != null) {
                 Log.d(TAG, "Cable connected – matched device type ${match.type}")
-                onCableConnected(skipDelay = false)
+                onCableConnected()
             }
         }
         override fun onAudioDevicesRemoved(removed: Array<AudioDeviceInfo>) {
@@ -54,7 +54,7 @@ class CarModeService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_TEST) onCableConnected(skipDelay = true)
+        if (intent?.action == ACTION_TEST) launchDirect()
         return START_STICKY
     }
 
@@ -67,19 +67,32 @@ class CarModeService : Service() {
         super.onDestroy()
     }
 
-    private fun onCableConnected(skipDelay: Boolean) {
-        Log.d(TAG, "onCableConnected called (skipDelay=$skipDelay)")
+    // Test button: screen is ON so fullScreenIntent won't auto-fire on Android 10+.
+    // App is still in foreground → startActivity works directly.
+    private fun launchDirect() {
+        scope.launch {
+            val packages = prefs.appList.first().filter { it.isNotBlank() }
+            Log.d(TAG, "Direct launch: $packages")
+            if (packages.isEmpty()) return@launch
+            val launchIntent = Intent(this@CarModeService, LauncherActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putStringArrayListExtra(LauncherActivity.EXTRA_PACKAGES, ArrayList(packages))
+            }
+            startActivity(launchIntent)
+        }
+    }
+
+    private fun onCableConnected() {
+        Log.d(TAG, "onCableConnected called")
         launchJob?.cancel()
         launchJob = scope.launch {
             val enabled = prefs.serviceEnabled.first()
             Log.d(TAG, "serviceEnabled=$enabled")
             if (!enabled) return@launch
 
-            if (!skipDelay) {
-                val delaySec = prefs.delaySeconds.first()
-                Log.d(TAG, "Waiting ${delaySec}s before launching apps")
-                delay(delaySec * 1000L)
-            }
+            val delaySec = prefs.delaySeconds.first()
+            Log.d(TAG, "Waiting ${delaySec}s before launching apps")
+            delay(delaySec * 1000L)
 
             if (prefs.keepScreenOn.first()) acquireWakeLock()
 
