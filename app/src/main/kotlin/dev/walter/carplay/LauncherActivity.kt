@@ -1,9 +1,11 @@
 package dev.walter.carplay
 
+import android.app.NotificationManager
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import dev.walter.carplay.service.CarModeService
 
 class LauncherActivity : ComponentActivity() {
 
@@ -33,6 +35,9 @@ class LauncherActivity : ComponentActivity() {
                 }
             }
         }
+
+        getSystemService(NotificationManager::class.java)
+            .cancel(CarModeService.ALERT_NOTIF_ID)
 
         finish()
     }

@@ -184,7 +184,7 @@ class CarModeService : Service() {
         private const val MONITOR_CHANNEL_ID = "car_monitor"
         private const val ALERT_CHANNEL_ID = "car_alert"
         private const val NOTIF_ID = 1
-        private const val ALERT_NOTIF_ID = 100
+        const val ALERT_NOTIF_ID = 100
         private const val REQUEST_CODE_BASE = 200
 
         private val AUDIO_OUTPUT_TYPES = setOf(
