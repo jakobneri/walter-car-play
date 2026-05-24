@@ -16,6 +16,7 @@ object Keys {
     val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
     val SET_VOLUME = booleanPreferencesKey("set_volume")
     val VOLUME_LEVEL = intPreferencesKey("volume_level")
+    val CLOSE_ON_DISCONNECT = booleanPreferencesKey("close_on_disconnect")
 }
 
 const val DEFAULT_APPS = ""
@@ -31,6 +32,7 @@ class AppPreferences(private val ctx: Context) {
     val keepScreenOn: Flow<Boolean> = ctx.dataStore.data.map { it[Keys.KEEP_SCREEN_ON] ?: false }
     val setVolume: Flow<Boolean> = ctx.dataStore.data.map { it[Keys.SET_VOLUME] ?: false }
     val volumeLevel: Flow<Int> = ctx.dataStore.data.map { it[Keys.VOLUME_LEVEL] ?: 80 }
+    val closeOnDisconnect: Flow<Boolean> = ctx.dataStore.data.map { it[Keys.CLOSE_ON_DISCONNECT] ?: false }
 
     suspend fun setServiceEnabled(v: Boolean) = ctx.dataStore.edit { it[Keys.SERVICE_ENABLED] = v }
     suspend fun setAppList(list: List<String>) =
@@ -39,4 +41,5 @@ class AppPreferences(private val ctx: Context) {
     suspend fun setKeepScreenOn(v: Boolean) = ctx.dataStore.edit { it[Keys.KEEP_SCREEN_ON] = v }
     suspend fun setSetVolume(v: Boolean) = ctx.dataStore.edit { it[Keys.SET_VOLUME] = v }
     suspend fun setVolumeLevel(v: Int) = ctx.dataStore.edit { it[Keys.VOLUME_LEVEL] = v }
+    suspend fun setCloseOnDisconnect(v: Boolean) = ctx.dataStore.edit { it[Keys.CLOSE_ON_DISCONNECT] = v }
 }

@@ -1,6 +1,7 @@
 package dev.walter.carplay.service
 
 import android.app.*
+import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
 import android.media.AudioDeviceCallback
@@ -40,6 +41,15 @@ class CarModeService : Service() {
                 Log.d(TAG, "Cable removed – cancelling launch job")
                 launchJob?.cancel()
                 releaseWakeLock()
+                scope.launch {
+                    if (prefs.closeOnDisconnect.first()) {
+                        val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                        prefs.appList.first().filter { it.isNotBlank() }.forEach { pkg ->
+                            Log.d(TAG, "Killing process: $pkg")
+                            am.killBackgroundProcesses(pkg)
+                        }
+                    }
+                }
             }
         }
     }

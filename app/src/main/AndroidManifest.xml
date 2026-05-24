@@ -10,12 +10,7 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
-
-    <queries>
-        <package android:name="com.google.android.apps.youtube.music" />
-        <package android:name="de.blitzer.plus" />
-        <package android:name="com.sygic.aura" />
-    </queries>
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
 
     <application
         android:allowBackup="true"

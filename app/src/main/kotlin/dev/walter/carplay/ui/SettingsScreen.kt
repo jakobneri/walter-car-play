@@ -50,6 +50,7 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
     val keepScreen by prefs.keepScreenOn.collectAsState(false)
     val setVol by prefs.setVolume.collectAsState(false)
     val volLevel by prefs.volumeLevel.collectAsState(80)
+    val closeOnDisconnect by prefs.closeOnDisconnect.collectAsState(false)
 
     var showAppPicker by remember { mutableStateOf(false) }
 
@@ -178,6 +179,10 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
                 HorizontalDivider(color = CardHighlight, modifier = Modifier.padding(horizontal = 12.dp))
                 OptionRow("Lautstärke setzen", "Musik-Lautstärke beim Verbinden anpassen", setVol) {
                     scope.launch { prefs.setSetVolume(it) }
+                }
+                HorizontalDivider(color = CardHighlight, modifier = Modifier.padding(horizontal = 12.dp))
+                OptionRow("Apps schließen beim Abstecken", "Beendet alle konfigurierten Apps wenn das Kabel gezogen wird", closeOnDisconnect) {
+                    scope.launch { prefs.setCloseOnDisconnect(it) }
                 }
                 if (setVol) {
                     Row(
