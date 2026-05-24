@@ -45,7 +45,7 @@ fun SettingsScreen(onRequestBatteryOptimization: () -> Unit) {
     val scope = rememberCoroutineScope()
 
     val serviceEnabled by prefs.serviceEnabled.collectAsState(true)
-    val apps by prefs.appList.collectAsState(listOf("com.google.android.apps.youtube.music", "com.sygic.aura"))
+    val apps by prefs.appList.collectAsState(emptyList())
     val delay by prefs.delaySeconds.collectAsState(2)
     val keepScreen by prefs.keepScreenOn.collectAsState(false)
     val setVol by prefs.setVolume.collectAsState(false)

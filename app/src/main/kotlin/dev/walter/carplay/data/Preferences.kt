@@ -18,7 +18,7 @@ object Keys {
     val VOLUME_LEVEL = intPreferencesKey("volume_level")
 }
 
-const val DEFAULT_APPS = "com.google.android.apps.youtube.music|de.blitzer.plus"
+const val DEFAULT_APPS = ""
 const val APP_SEPARATOR = "|"
 
 class AppPreferences(private val ctx: Context) {
